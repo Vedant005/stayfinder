@@ -3,27 +3,60 @@ import { User } from "../models/user.js"; // To populate host details
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
 const createListing = asyncHandler(async (req, res) => {
-  const { title, description, price, location, images } = req.body;
+  const { title, description, price, location } = req.body;
+  const imageFiles = req.files;
 
+  // Basic validation for text fields
   if (!title || !description || !price || !location) {
+    if (imageFiles && imageFiles.length > 0) {
+      imageFiles.forEach((file) => {
+        fs.unlink(file.path, (err) => {
+          if (err)
+            console.error(
+              "Error deleting temp file on validation fail:",
+              err.message
+            );
+        });
+      });
+    }
     throw new ApiError(
       400,
       "Title, description, price, and location are required."
     );
   }
 
-  // `req.user` comes from the `verifyJWT` middleware,
-  // and `authorizeRoles` ensures only 'host' can reach here.
+  if (!imageFiles || imageFiles.length === 0) {
+    throw new ApiError(400, "At least one image is required for the listing.");
+  }
+
   const hostId = req.user._id;
+  const imageUrls = [];
+
+  // Upload each image to Cloudinary
+  for (const file of imageFiles) {
+    const cloudinaryResponse = await uploadOnCloudinary(file.path);
+    if (cloudinaryResponse && cloudinaryResponse.url) {
+      imageUrls.push(cloudinaryResponse.url);
+    } else {
+      console.error(`Failed to upload ${file.filename} to Cloudinary.`);
+
+      throw new ApiError(500, "Failed to upload one or more images.");
+    }
+  }
+
+  if (imageUrls.length === 0) {
+    throw new ApiError(500, "No images could be uploaded to Cloudinary.");
+  }
 
   const listing = await Listing.create({
     title,
     description,
     price,
     location,
-    images: images || [],
+    images: imageUrls,
     host: hostId,
   });
 
@@ -31,11 +64,10 @@ const createListing = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Something went wrong while creating the listing.");
   }
 
-  // Populate the host details for the response
   const createdListing = await Listing.findById(listing._id).populate(
     "host",
     "username email"
-  ); // Only show username and email of host
+  );
 
   return res
     .status(201)
