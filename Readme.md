@@ -85,8 +85,8 @@ Before you begin, ensure you have the following installed:
 1.  **Clone the repository:**
 
     ```bash
-    git clone <your-repository-url>
-    cd propert-ease/backend # Adjust this path if your project structure is different
+    gh repo clone Vedant005/stayfinder
+    cd propert-ease/backend
     ```
 
 2.  **Install dependencies:**
@@ -112,7 +112,7 @@ Before you begin, ensure you have the following installed:
 
     ```bash
     cd ../frontend # Assuming you are in the backend directory
-    # or cd propert-ease/frontend if starting from root
+
     ```
 
 2.  **Install dependencies:**
